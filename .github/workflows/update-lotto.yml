@@ -1,0 +1,40 @@
+name: Update Lotto History
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    # GitHub Actions cron은 UTC 기준입니다.
+    # 매주 일요일 오전 00:30 한국시간 = 토요일 15:30 UTC
+    - cron: "30 15 * * 6"
+
+permissions:
+  contents: write
+
+jobs:
+  update-lotto-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download official lotto history
+        run: node download-lotto-data.js
+
+      - name: Commit updated lotto history
+        run: |
+          if git status --porcelain -- lotto-history.json | grep -q .; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lotto-history.json
+            git commit -m "chore: update lotto history"
+            git push
+          else
+            echo "No lotto history changes"
+          fi
