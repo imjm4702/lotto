@@ -13,3 +13,5 @@
 .ball.gray{background:radial-gradient(circle at 32% 25%,#e1e7e9 0 9%,#9ca7a9 35%,#707c80 100%)}
 .ball.green{background:radial-gradient(circle at 32% 25%,#c6f1b8 0 9%,#79c978 35%,#459b61 100%)}
 .mini-balls .ball{width:36px;height:36px;font-size:11px}
+.ball{font-size:13px!important;font-weight:800!important;letter-spacing:-.5px;color:#fff!important;text-shadow:0 1px 0 rgba(0,0,0,.75),1px 0 2px rgba(0,0,0,.45),-1px 0 2px rgba(0,0,0,.3)}
+.mini-balls .ball{font-size:13px!important}
