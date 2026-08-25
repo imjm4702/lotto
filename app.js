@@ -1,148 +1,80 @@
-let hotNumbers = [7, 12, 27, 34, 41, 44];
-let coldNumbers = [2, 9, 18, 23, 31, 38];
-let history = [];
-let model = null;
-let balanced = true;
-const colors = n => n <= 10 ? 'yellow' : n <= 20 ? 'blue' : n <= 30 ? 'red' : n <= 40 ? 'gray' : 'green';
+let hotNumbers = [7,12,27,34,41,44], coldNumbers = [2,9,18,23,31,38], history = [], model = null, balanced = true;
+const colors = n => n<=10?'yellow':n<=20?'blue':n<=30?'red':n<=40?'gray':'green';
 const $ = id => document.getElementById(id);
+const allNumbers = () => Array.from({length:45},(_,i)=>i+1);
+const average = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0;
+const normalize = a => { const min=Math.min(...a), max=Math.max(...a); return v => max===min ? .5 : (v-min)/(max-min); };
 
 function sampleWeighted(pool, weights) {
-  const values = [...pool], picked = [];
-  while (picked.length < 6 && values.length) {
-    const total = values.reduce((sum, n) => sum + (weights[n] || 1), 0);
-    let cursor = Math.random() * total, index = 0;
-    for (; index < values.length; index++) { cursor -= weights[values[index]] || 1; if (cursor <= 0) break; }
-    picked.push(values.splice(Math.min(index, values.length - 1), 1)[0]);
-  }
-  return picked.sort((a,b) => a-b);
+  const values=[...pool], picked=[];
+  while(picked.length<6&&values.length){let total=values.reduce((s,n)=>s+(weights[n]||1),0), cursor=Math.random()*total, i=0;for(;i<values.length;i++){cursor-=weights[values[i]]||1;if(cursor<=0)break}picked.push(values.splice(Math.min(i,values.length-1),1)[0])}
+  return picked.sort((a,b)=>a-b);
 }
 
-function score(numbers) {
-  const odd = numbers.filter(n => n % 2).length;
-  const sections = new Set(numbers.map(n => Math.ceil(n / 15))).size;
-  const consecutive = numbers.filter((n, i) => i && n === numbers[i - 1] + 1).length;
-  return Math.max(58, Math.min(98, 72 + Math.min(15, sections * 4) - Math.abs(3 - odd) * 5 - consecutive * 4 + Math.floor(Math.random() * 7) - 3));
-}
-
-function buildModel() {
-  if (!history.length) { model = null; return; }
-  const total = history.length, recentSize = Math.min(60, total), counts = Array(46).fill(0), recent = Array(46).fill(0), lastSeen = Array(46).fill(total), pairs = Array.from({length:46}, () => Array(46).fill(0));
-  const sumValues = [], oddValues = [], sectionValues = [];
-  history.forEach((draw, index) => {
-    const numbers = draw.numbers.map(Number).filter(n => n >= 1 && n <= 45);
-    numbers.forEach(n => { counts[n]++; lastSeen[n] = total - 1 - index; if (index >= total - recentSize) recent[n]++; });
-    numbers.forEach((a, i) => numbers.slice(i + 1).forEach(b => { pairs[a][b]++; pairs[b][a]++; }));
-    sumValues.push(numbers.reduce((sum, n) => sum + n, 0));
-    oddValues.push(numbers.filter(n => n % 2).length);
-    sectionValues.push(new Set(numbers.map(n => Math.ceil(n / 15))).size);
+function makeStats(draws) {
+  const total=draws.length, recentSize=Math.min(60,total), counts=Array(46).fill(0), recent=Array(46).fill(0), lastSeen=Array(46).fill(total), pairs=Array.from({length:46},()=>Array(46).fill(0));
+  const sums=[], odds=[], sections=[], consecutive=[], endings=Array(10).fill(0);
+  draws.forEach((draw,index)=>{
+    const nums=(draw.numbers||[]).map(Number).filter(n=>n>=1&&n<=45).sort((a,b)=>a-b);
+    nums.forEach(n=>{counts[n]++;lastSeen[n]=total-1-index;if(index>=total-recentSize)recent[n]++;endings[n%10]++});
+    nums.forEach((a,i)=>nums.slice(i+1).forEach(b=>{pairs[a][b]++;pairs[b][a]++}));
+    sums.push(nums.reduce((s,n)=>s+n,0)); odds.push(nums.filter(n=>n%2).length); sections.push(new Set(nums.map(n=>Math.ceil(n/15))).size); consecutive.push(nums.filter((n,i)=>i&&n===nums[i-1]+1).length);
   });
-  const normalize = values => { const min = Math.min(...values), max = Math.max(...values); return value => max === min ? .5 : (value - min) / (max - min); };
-  const freqNorm = normalize(counts.slice(1)), recentNorm = normalize(recent.slice(1)), gapNorm = normalize(lastSeen.slice(1));
-  const pairMax = Math.max(1, ...pairs.flat());
-  model = {counts, recent, lastSeen, pairs, pairMax, freqNorm:n => freqNorm(counts[n]), recentNorm:n => recentNorm(recent[n]), gapNorm:n => gapNorm(lastSeen[n]),
-    avgSum: sumValues.reduce((a,b) => a + b, 0) / sumValues.length,
-    avgOdd: oddValues.reduce((a,b) => a + b, 0) / oddValues.length,
-    avgSections: sectionValues.reduce((a,b) => a + b, 0) / sectionValues.length};
+  const freqN=normalize(counts.slice(1)), recentN=normalize(recent.slice(1)), gapN=normalize(lastSeen.slice(1));
+  const pairMax=Math.max(1,...pairs.flat()), pairLift=Array.from({length:46},()=>Array(46).fill(0));
+  for(let a=1;a<=45;a++)for(let b=a+1;b<=45;b++){const expected=(counts[a]*counts[b])/Math.max(1,total*6/45);pairLift[a][b]=pairLift[b][a]=Math.min(3,(pairs[a][b]+1)/(expected+1));}
+  const sumN=normalize(sums), oddN=normalize(odds), sectionN=normalize(sections), consecutiveN=normalize(consecutive);
+  const posterior=n=>(counts[n]+2)/(total+15); // Beta prior: expected inclusion rate 6/45
+  model={total,counts,recent,lastSeen,pairs,pairLift,pairMax,posterior,freqN:n=>freqN(counts[n]),recentN:n=>recentN(recent[n]),gapN:n=>gapN(lastSeen[n]),sumN,oddN,sectionN,consecutiveN,avgSum:average(sums),avgOdd:average(odds),avgSections:average(sections),avgConsecutive:average(consecutive),endingRate:endings.map(v=>v/Math.max(1,total*6))};
 }
 
-function analyzedScore(numbers, hot, cold) {
-  if (!model) return score(numbers);
-  const hotWeight = hot / 100, coldWeight = cold / 100;
-  const numberPart = numbers.reduce((sum, n) => sum + model.freqNorm(n) * (.35 + hotWeight * .35) + model.recentNorm(n) * (.15 + hotWeight * .15) + model.gapNorm(n) * (.15 + coldWeight * .35), 0) / 6;
-  let pairPart = 0, pairCount = 0;
-  numbers.forEach((a, i) => numbers.slice(i + 1).forEach(b => { pairPart += model.pairs[a][b] / model.pairMax; pairCount++; }));
-  pairPart = pairCount ? pairPart / pairCount : 0;
-  const oddFit = Math.max(0, 1 - Math.abs(numbers.filter(n => n % 2).length - model.avgOdd) / 3);
-  const sumFit = Math.max(0, 1 - Math.abs(numbers.reduce((a,b) => a + b, 0) - model.avgSum) / 100);
-  const sectionFit = Math.max(0, 1 - Math.abs(new Set(numbers.map(n => Math.ceil(n / 15))).size - model.avgSections) / 3);
-  const consecutivePenalty = numbers.filter((n, i) => i && n === numbers[i - 1] + 1).length * .08;
-  return Math.round(45 * numberPart + 25 * pairPart + 12 * oddFit + 10 * sumFit + 8 * sectionFit - consecutivePenalty * 10);
+function popularPenalty(numbers){
+  const under32=numbers.filter(n=>n<=31).length, endings=new Set(numbers.map(n=>n%10)).size, dateLike=numbers.every(n=>n<=31);
+  const arithmetic=numbers.length>=3&&numbers[1]-numbers[0]===numbers[2]-numbers[1];
+  return under32/6*.55+(6-endings)/6*.2+(dateLike?.2:0)+(arithmetic?.2:0);
 }
 
-function makePick(hot, cold) {
-  if (model) {
-    const weights = {};
-    for (let n = 1; n <= 45; n++) weights[n] = .5 + model.freqNorm(n) * (.8 + hot / 80) + model.recentNorm(n) * (hot / 120) + model.gapNorm(n) * (cold / 80);
-    const candidates = [];
-    for (let attempt = 0; attempt < 900; attempt++) {
-      const candidate = sampleWeighted(Array.from({length:45}, (_,i) => i + 1), weights);
-      const candidateScore = analyzedScore(candidate, hot, cold);
-      if (!balanced || (Math.abs(3 - candidate.filter(n => n % 2).length) <= 1 && new Set(candidate.map(n => Math.ceil(n / 15))).size >= 3)) candidates.push({numbers:candidate, score:candidateScore});
-    }
-    candidates.sort((a,b) => b.score - a.score);
-    const selected = candidates[Math.floor(Math.random() * Math.min(10, candidates.length))] || {numbers:sampleWeighted(Array.from({length:45}, (_,i) => i + 1), weights), score:0};
-    return {numbers:selected.numbers, score:Math.max(58, Math.min(98, selected.score))};
-  }
-  const weights = {};
-  for (let n = 1; n <= 45; n++) weights[n] = 1;
-  hotNumbers.forEach(n => weights[n] += hot / 32);
-  coldNumbers.forEach(n => weights[n] += cold / 32);
-  let pick = sampleWeighted(Array.from({length:45}, (_,i) => i+1), weights), tries = 0;
-  while (balanced && (Math.abs(3 - pick.filter(n => n % 2).length) > 1 || new Set(pick.map(n => Math.ceil(n/15))).size < 3) && tries++ < 20) pick = sampleWeighted(Array.from({length:45}, (_,i) => i+1), weights);
-  return {numbers: pick, score: score(pick)};
+function analyzedScore(numbers,hot,cold){
+  if(!model)return 50;
+  const hw=hot/100,cw=cold/100;
+  const numberPart=numbers.reduce((s,n)=>s+model.posterior(n)*100*(.35+hw*.35)+model.recentN(n)*(.1+hw*.15)+model.gapN(n)*(.1+cw*.25),0)/6;
+  let lift=0, pairs=0; numbers.forEach((a,i)=>numbers.slice(i+1).forEach(b=>{lift+=model.pairLift[a][b];pairs++})); lift=pairs?Math.min(100,(lift/pairs)/3*100):0;
+  const sumFit=Math.max(0,100-Math.abs(numbers.reduce((a,b)=>a+b,0)-model.avgSum)*1.25);
+  const oddFit=Math.max(0,100-Math.abs(numbers.filter(n=>n%2).length-model.avgOdd)*28);
+  const sectionFit=Math.max(0,100-Math.abs(new Set(numbers.map(n=>Math.ceil(n/15))).size-model.avgSections)*30);
+  const consecutive=numbers.filter((n,i)=>i&&n===numbers[i-1]+1).length;
+  const consecutiveFit=Math.max(0,100-Math.abs(consecutive-model.avgConsecutive)*30);
+  return Math.round(numberPart*.38+lift*.22+sumFit*.12+oddFit*.1+sectionFit*.08+consecutiveFit*.05-popularPenalty(numbers)*5);
 }
 
-function makeStrongPick() {
-  const selected = [];
-  const addFrom = (pool, amount) => {
-    [...pool].sort(() => Math.random() - 0.5).forEach(number => {
-      if (selected.length < 6 && selected.length < amount && !selected.includes(number)) selected.push(number);
-    });
-  };
-  addFrom(hotNumbers, 2);
-  const beforeCold = selected.length;
-  [...coldNumbers].sort(() => Math.random() - 0.5).forEach(number => {
-    if (selected.length < beforeCold + 2 && !selected.includes(number)) selected.push(number);
-  });
-  const neutral = Array.from({length:45}, (_, i) => i + 1).filter(number => !selected.includes(number) && !hotNumbers.includes(number) && !coldNumbers.includes(number));
-  addFrom(neutral, 6);
-  let numbers = selected.sort((a,b) => a-b);
-  if (Math.abs(3 - numbers.filter(n => n % 2).length) > 1 || new Set(numbers.map(n => Math.ceil(n / 15))).size < 3) numbers = makePick(70, 70).numbers;
-  return {numbers, score: score(numbers)};
+function fallbackPick(hot,cold){const weights={};for(let n=1;n<=45;n++)weights[n]=1;hotNumbers.forEach(n=>weights[n]+=hot/32);coldNumbers.forEach(n=>weights[n]+=cold/32);let p=sampleWeighted(allNumbers(),weights),tries=0;while(balanced&&(Math.abs(3-p.filter(n=>n%2).length)>1||new Set(p.map(n=>Math.ceil(n/15))).size<3)&&tries++<20)p=sampleWeighted(allNumbers(),weights);return{numbers:p,score:50};}
+
+function makePick(hot,cold){
+  if(!model)return fallbackPick(hot,cold);
+  const weights={};for(let n=1;n<=45;n++)weights[n]=.3+model.posterior(n)*8+model.recentN(n)*(hot/35)+model.gapN(n)*(cold/30);
+  const candidates=[];
+  for(let i=0;i<1400;i++){const nums=sampleWeighted(allNumbers(),weights);if(!balanced|| (Math.abs(3-nums.filter(n=>n%2).length)<=1&&new Set(nums.map(n=>Math.ceil(n/15))).size>=3))candidates.push({numbers:nums,score:analyzedScore(nums,hot,cold)});}
+  candidates.sort((a,b)=>b.score-a.score);return candidates[Math.floor(Math.random()*Math.min(12,candidates.length))]||fallbackPick(hot,cold);
 }
 
-function renderStats() {
-  if (!history.length) return;
-  const counts = Array.from({length:46}, () => 0);
-  history.forEach(draw => draw.numbers.forEach(n => counts[n]++));
-  const ranked = Array.from({length:45}, (_,i) => i + 1).sort((a,b) => counts[b] - counts[a] || a - b);
-  hotNumbers = ranked.slice(0, 6); coldNumbers = [...ranked].reverse().slice(0, 6);
-  buildModel();
-  statBalls('hotBalls', hotNumbers); statBalls('coldBalls', coldNumbers);
-  $('hotDesc').textContent = `공식 데이터 ${history.length}회에서 가장 자주 등장한 번호`;
-  $('coldDesc').textContent = `공식 데이터 ${history.length}회에서 출현 빈도가 낮은 번호`;
+function makeStrongPick(){
+  if(!model)return makePick(80,80);
+  const candidates=[];for(let i=0;i<2500;i++){const nums=sampleWeighted(allNumbers(),Object.fromEntries(allNumbers().map(n=>[n,.3+model.posterior(n)*8+model.recentN(n)*1.2+model.gapN(n)*1.2])));if(Math.abs(3-nums.filter(n=>n%2).length)<=1&&new Set(nums.map(n=>Math.ceil(n/15))).size>=3)candidates.push({numbers:nums,score:analyzedScore(nums,80,80)});}candidates.sort((a,b)=>b.score-a.score);return candidates[0]||makePick(80,80);
 }
 
-function statBalls(target, nums) { $(target).innerHTML = nums.map(n => `<span class="ball ${colors(n)}">${String(n).padStart(2,'0')}</span>`).join(''); }
-function render() {
-  const count = Number($('countRange').value), hot = Number($('hotRange').value), cold = Number($('coldRange').value);
-  $('countValue').textContent = `${count} 게임`; $('hotValue').textContent = `${hot}%`; $('coldValue').textContent = `${cold}%`;
-  const picks = Array.from({length: count}, () => makePick(hot, cold));
-  if ($('sortBalance').checked) picks.sort((a, b) => b.score - a.score);
-  $('resultGrid').innerHTML = picks.map((pick, i) => `<div class="pick-card"><div class="pick-meta"><span>GAME ${String(i+1).padStart(2,'0')}</span><span class="score">BALANCE ${pick.score}</span></div><div class="balls">${pick.numbers.map(n => `<span class="ball ${colors(n)}">${String(n).padStart(2,'0')}</span>`).join('')}</div></div>`).join('');
-  const strong = makeStrongPick();
-  $('strongPick').innerHTML = `<div class="strong-pick-head"><div><div class="strong-label">✦ STRONG PICK</div><div class="strong-reason">자주 보이는 번호 + 쉬고 있는 번호 + 안정적인 분산</div></div><span class="strong-score">BALANCE ${strong.score}</span></div><div class="strong-balls">${strong.numbers.map(n => `<span class="ball ${colors(n)}">${String(n).padStart(2,'0')}</span>`).join('')}</div><p class="strong-foot"><b>오늘의 강추번호</b> — 세 가지 기준을 함께 반영한 대표 조합입니다.</p>`;
-  $('generatedAt').textContent = `마지막 생성 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+function backtest(){
+  if(history.length<80)return null;
+  const cut=Math.floor(history.length*.8), train=history.slice(0,cut), test=history.slice(cut), old=model;makeStats(train);let hits=0;
+  test.forEach(draw=>{const actual=new Set(draw.numbers.map(Number));const pick=makePick(50,50).numbers;hits+=pick.filter(n=>actual.has(n)).length;});model=old;
+  return {draws:test.length,avgHits:(hits/test.length).toFixed(2)};
 }
 
-async function loadOfficialHistory() {
-  const status = $('dataStatus'); status.textContent = '공식 데이터 불러오는 중…'; status.className = 'data-status';
-  try {
-    const response = await fetch('lotto-history.json', {cache:'no-store'});
-    if (!response.ok) throw new Error('파일 없음');
-    history = await response.json(); renderStats(); render();
-    status.textContent = `동행복권 공식 데이터 ${history.length}회 분석 모델 적용`; status.className = 'data-status ready';
-  } catch (error) {
-    status.textContent = '공식 데이터 파일 없음 · 기본 통계 사용 중'; status.className = 'data-status error';
-    console.warn('공식 데이터를 먼저 다운로드하세요: node download-lotto-data.js');
-  }
-}
+function statBalls(target,nums){$(target).innerHTML=nums.map(n=>`<span class="ball ${colors(n)}">${String(n).padStart(2,'0')}</span>`).join('');}
+function renderStats(){if(!history.length)return;const counts=Array(46).fill(0);history.forEach(d=>(d.numbers||[]).forEach(n=>counts[n]++));const ranked=allNumbers().sort((a,b)=>counts[b]-counts[a]||a-b);hotNumbers=ranked.slice(0,6);coldNumbers=[...ranked].reverse().slice(0,6);makeStats(history);statBalls('hotBalls',hotNumbers);statBalls('coldBalls',coldNumbers);$('hotDesc').textContent=`공식 데이터 ${history.length}회에서 가장 자주 등장한 번호`;$('coldDesc').textContent=`공식 데이터 ${history.length}회에서 출현 빈도가 낮은 번호`;const test=backtest();if(test)$('dataStatus').dataset.backtest=`워크포워드 ${test.draws}회 평균 적중 ${test.avgHits}개`;}
+function render(){const count=Number($('countRange').value),hot=Number($('hotRange').value),cold=Number($('coldRange').value);$('countValue').textContent=`${count} 게임`;$('hotValue').textContent=`${hot}%`;$('coldValue').textContent=`${cold}%`;const strong=makeStrongPick();$('strongPick').innerHTML=`<div class="strong-pick-head"><div><div class="strong-label">✦ STRONG PICK</div><div class="strong-reason">빈도 + Bayesian 보정 + pair lift + 분포 분석</div></div><span class="strong-score">BALANCE ${strong.score}</span></div><div class="strong-balls">${strong.numbers.map(n=>`<span class="ball ${colors(n)}">${String(n).padStart(2,'0')}</span>`).join('')}</div><p class="strong-foot"><b>오늘의 강추번호</b> — 전체 분석 점수가 가장 높은 대표 조합입니다.</p>`;let picks=Array.from({length:count},()=>makePick(hot,cold));if($('sortBalance').checked)picks.sort((a,b)=>b.score-a.score);$('resultGrid').innerHTML=picks.map((pick,i)=>`<div class="pick-card"><div class="pick-meta"><span>GAME ${String(i+1).padStart(2,'0')}</span><span class="score">BALANCE ${pick.score}</span></div><div class="balls">${pick.numbers.map(n=>`<span class="ball ${colors(n)}">${String(n).padStart(2,'0')}</span>`).join('')}</div></div>`).join('');$('generatedAt').textContent=`마지막 생성 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;}
 
-statBalls('hotBalls', hotNumbers); statBalls('coldBalls', coldNumbers);
-$('hotDesc').textContent = '공식 데이터가 연결되면 자동으로 갱신됩니다'; $('coldDesc').textContent = '공식 데이터가 연결되면 자동으로 갱신됩니다';
-$('countRange').addEventListener('input', render); $('hotRange').addEventListener('input', render); $('coldRange').addEventListener('input', render);
-$('sortBalance').addEventListener('change', render);
-$('generateBtn').addEventListener('click', render); $('loadHistory').addEventListener('click', loadOfficialHistory);
-$('balanceToggle').addEventListener('click', e => { balanced = !balanced; e.currentTarget.classList.toggle('on', balanced); render(); });
-$('copyAll').addEventListener('click', async () => { const text = [...document.querySelectorAll('.pick-card')].map(c => [...c.querySelectorAll('.ball')].map(b => b.textContent).join(', ')).join('\n'); try { await navigator.clipboard.writeText(text); $('copyAll').firstChild.textContent = '복사 완료 '; setTimeout(() => $('copyAll').firstChild.textContent = '전체 복사 ', 1400); } catch { alert(text); } });
-render(); loadOfficialHistory();
+async function loadOfficialHistory(){const status=$('dataStatus');status.textContent='공식 데이터 불러오는 중…';status.className='data-status';try{const response=await fetch('lotto-history.json',{cache:'no-store'});if(!response.ok)throw new Error('파일 없음');history=await response.json();renderStats();render();const bt=status.dataset.backtest?` · ${status.dataset.backtest}`:'';status.textContent=`동행복권 공식 데이터 ${history.length}회 분석 모델 적용${bt}`;status.className='data-status ready';}catch(error){status.textContent='공식 데이터 파일 없음 · 분석 모델 대기 중';status.className='data-status error';console.warn('lotto-history.json을 먼저 생성하세요.');}}
+
+statBalls('hotBalls',hotNumbers);statBalls('coldBalls',coldNumbers);$('hotDesc').textContent='공식 데이터가 연결되면 자동으로 갱신됩니다';$('coldDesc').textContent='공식 데이터가 연결되면 자동으로 갱신됩니다';
+$('countRange').addEventListener('input',render);$('hotRange').addEventListener('input',render);$('coldRange').addEventListener('input',render);$('sortBalance').addEventListener('change',render);$('generateBtn').addEventListener('click',render);$('loadHistory').addEventListener('click',loadOfficialHistory);$('balanceToggle').addEventListener('click',e=>{balanced=!balanced;e.currentTarget.classList.toggle('on',balanced);render();});$('copyAll').addEventListener('click',async()=>{const text=[...document.querySelectorAll('.pick-card')].map(c=>[...c.querySelectorAll('.ball')].map(b=>b.textContent).join(', ')).join('\n');try{await navigator.clipboard.writeText(text);$('copyAll').firstChild.textContent='복사 완료 ';setTimeout(()=>$('copyAll').firstChild.textContent='전체 복사 ',1400)}catch{alert(text)}});
+render();loadOfficialHistory();
