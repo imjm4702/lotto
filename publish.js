@@ -80,7 +80,7 @@ async function main() {
 
   const hookTriggered = await triggerRenderDeploy();
   if (!hookTriggered) {
-    if (commitsToPush > 0) console.log('[5/5] Push complete. Render Git auto-deploy will deploy the new main commit.');
+    if (commitsToPush > 0) console.log('[5/5] Push complete. A Render service linked to this repo will auto-deploy the new main commit.');
     else console.log('[5/5] Nothing new was pushed, so Git-based auto-deploy was not triggered.');
   }
 
