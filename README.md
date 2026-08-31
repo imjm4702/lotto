@@ -15,7 +15,7 @@ node serve-local.js
 변경사항을 검증하고 `main` 브랜치에 올리려면 다음 명령 하나만 실행합니다.
 
 ```powershell
-.\publish.ps1 -Message "feat: 변경 내용"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\publish.ps1 -Message "feat: 변경 내용"
 ```
 
 스크립트가 JavaScript와 당첨 이력을 검증한 후 커밋하고 GitHub에 푸시합니다. Render는 루트의 `render.yaml`을 사용하며, `main`에 새 커밋이 올라오면 사이트를 자동으로 다시 배포합니다.
