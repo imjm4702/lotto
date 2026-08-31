@@ -27,6 +27,11 @@ jobs:
       - name: Download official lotto history
         run: node download-lotto-data.js
 
+      - name: Validate updated data
+        run: |
+          node --check app.js
+          node verify.js
+
       - name: Commit updated lotto history
         run: |
           if git status --porcelain -- lotto-history.json | grep -q .; then

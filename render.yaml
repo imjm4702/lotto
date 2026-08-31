@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: pick-and-balance-lotto
+    runtime: static
+    buildCommand: mkdir -p dist && cp index.html styles.css app.js lotto-history.json dist/
+    staticPublishPath: ./dist
+    autoDeployTrigger: commit
