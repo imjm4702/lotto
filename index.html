@@ -35,7 +35,7 @@
     <section class="hero">
       <div class="eyebrow"><span></span> LOTTO 6/45 · SMART COMBINATION LAB</div>
       <h1>감이 아니라<br><em>밸런스</em>로 고르는 숫자.</h1>
-      <p class="hero-copy">과거 당첨 패턴에서 얻은 인사이트와 번호 분산 원칙을 조합해<br class="desktop" /> 오늘의 균형 잡힌 후보를 찾아드립니다.</p>
+      <p class="hero-copy">최근 30회 흐름, 장기 미출현 간격, 번호 분포를 가중 앙상블로 조합해<br class="desktop" /> 2만 개 후보 중 균형 잡힌 조합을 찾아드립니다.</p>
       <div class="hero-note"><span class="spark">✦</span><span><strong>당첨을 보장하지 않습니다.</strong> 모든 조합의 당첨 확률은 동일하며, 재미와 참고를 위한 도구입니다.</span></div>
     </section>
 
@@ -55,15 +55,16 @@
         <div class="preference"><div><span class="pref-icon cool">◒</span><span>오래 쉰 번호</span></div><strong id="coldValue">50%</strong></div>
         <input id="coldRange" type="range" min="0" max="100" value="50" />
 
-        <div class="toggle-row"><div><strong>균형 규칙 적용</strong><small>홀짝 · 구간 · 연속번호</small></div><button id="balanceToggle" class="switch on" aria-label="균형 규칙 적용 토글"><span></span></button></div>
+        <div class="toggle-row"><div><strong>균형 규칙 적용</strong><small>합계 · 홀짝 · 저고 · 끝수 · 구간 · 연속번호</small></div><button id="balanceToggle" class="switch on" aria-label="균형 규칙 적용 토글" aria-pressed="true"><span></span></button></div>
         <button id="generateBtn" class="generate-btn"><span>새 조합 생성하기</span><b>↗</b></button>
       </aside>
 
       <section class="result-panel panel">
-        <div class="result-head"><div><div class="panel-kicker">02 / TODAY'S PICKS</div><h2>오늘의 추천 조합</h2><p id="dataStatus" class="data-status">내장된 참고 통계로 생성 중</p></div><div class="head-actions"><label class="sort-toggle"><input id="sortBalance" type="checkbox" checked /> 밸런스 높은 순</label><button id="loadHistory" class="ghost-btn">공식 데이터 갱신</button><button id="copyAll" class="ghost-btn">전체 복사 <span>⌘ C</span></button></div></div>
+        <div class="result-head"><div><div class="panel-kicker">02 / TODAY'S PICKS</div><h2>오늘의 추천 조합</h2><p id="dataStatus" class="data-status">앙상블 엔진 준비 중</p></div><div class="head-actions"><label class="sort-toggle"><input id="sortBalance" type="checkbox" checked /> 점수 높은 순</label><button id="loadHistory" class="ghost-btn">공식 데이터 갱신</button><button id="copyAnalysis" class="ghost-btn">분석 JSON 복사</button><button id="copyAll" class="ghost-btn">번호 복사</button></div></div>
+        <div id="engineMeta" class="engine-meta"><span>MONTE CARLO <b>20,000</b></span><span>RECENT <b>30 DRAWS</b></span><span>OVERDUE <b>15 WEEKS</b></span></div>
         <div id="strongPick" class="strong-pick"></div>
         <div id="resultGrid" class="result-grid"></div>
-        <div class="result-footer"><div class="score-legend"><span class="legend-dot"></span> 균형 점수 <span class="legend-line"></span> 높은 점수일수록 숫자 분산이 좋아요</div><span id="generatedAt">방금 생성됨</span></div>
+        <div class="result-footer"><div class="score-legend"><span class="legend-dot"></span> 앙상블 점수 <span class="legend-line"></span> 분포와 통계 신호의 상대 평가값</div><span id="generatedAt">계산 준비 중</span></div>
       </section>
     </section>
 
@@ -76,7 +77,7 @@
       </div>
     </section>
 
-    <section class="guide" id="guide"><div class="guide-number">?</div><div><div class="panel-kicker">HOW IT WORKS</div><h2>숫자를 예측하는 게 아니라,<br />숫자를 고르는 방식을 다듬습니다.</h2></div><p>번호별 출현 빈도는 매주 달라질 수 있어요. 픽앤밸런스는 한쪽 패턴에 쏠리지 않도록 여러 기준을 함께 보고, 매번 다른 조합을 제안합니다.</p></section>
+    <section class="guide" id="guide"><div class="guide-number">?</div><div><div class="panel-kicker">HOW IT WORKS</div><h2>숫자를 예측하는 게 아니라,<br />숫자를 고르는 방식을 다듬습니다.</h2></div><p>회차 기반 시드로 20,000개 조합을 탐색하고, 극단 분포와 과거 유사 패턴을 거른 뒤 상위 후보를 1~2개씩 변이해 6세대 개선합니다. 분석 JSON은 외부 텍스트 모델 검토용 메타데이터로 복사할 수 있습니다.</p></section>
   </main>
   <footer><span>pick<span class="accent">&</span>balance</span><span>FOR FUN, NOT FOR GUARANTEE · 2026</span></footer>
   <script src="app.js"></script>
